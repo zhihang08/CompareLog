@@ -1,0 +1,56 @@
+#compareResult{
+    margin-top: 10px;
+    overflow: auto;
+}
+.custom-filterDate{
+    margin: 5px 0px;
+}
+.detail-filter-panel>a{
+    border: 1px solid;
+    padding: 2px;
+    margin-right: 3px;
+}
+.custom-file{
+    display: block;
+}
+.custom-file>input{
+    margin-top: 5px;
+}
+td.highlight {
+    font-weight: bold;
+    color: blue;
+}
+.inputfile {
+	width: 0.1px;
+	height: 0.1px;
+	opacity: 0;
+	overflow: hidden;
+	position: absolute;
+	z-index: -1;
+}
+.inputfile + label {
+    font-size: 1.1em;
+    font-weight: 500;
+    color: white;
+    padding: 5px;
+    background-color: black;
+    display: inline-block;
+}
+
+.inputfile:focus + label,
+.inputfile + label:hover {
+    background-color: silver;
+    cursor: pointer;
+}
+.controlPanel-hdfs>div, .controlPanel-cib>div, .controlPanel-merge>div{
+    display: inline-block;
+}
+.controlPanel-hdfs > input, .controlPanel-hdfs > label, 
+.controlPanel-cib > input, .controlPanel-cib > label,
+.controlPanel-merge > input{
+    width: 145px;
+}
+.controlPanel-filter{
+    margin-top: 3px;
+    margin-bottom: 3px;
+}

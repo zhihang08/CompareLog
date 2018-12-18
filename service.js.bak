@@ -1,0 +1,225 @@
+const express = require('express')
+const path = require('path')
+const app = express()
+const fs = require('fs');
+const request = require('request');
+const formidable = require('formidable');
+const execFile = require('child_process').execFile;
+const exec = require('child_process').exec;
+
+app.use(express.static(path.join(__dirname, '/public')));
+app.use(express.static(path.join(__dirname, '/client')));
+app.use(express.static(path.join(__dirname, '/client/js')));
+app.use(express.static(path.join(__dirname, '/client/css')));
+
+app.param('fileName', function (req, res, next, fileName) {
+    req.fileName = fileName;
+    return next();
+  });
+app.engine('html', require('ejs').renderFile);
+app.use(express.static(path.join(__dirname, 'client')))
+
+app.get('/', function (req, res) {
+    res.sendfile("index.html");
+})
+
+//win
+app.get('/executeCMD', (req, res)=>{
+    var file = 'D:\\ThomsonReuters\\CIBORG\\Engine\\Logs\\Scan_LogFileInfo.bat';
+    // var file = 'D:\\ScanData\\scan_data_engine.bat'
+    console.log('begin to execute CMD: ' + file);
+    const process = execFile(file, ['whoami'], function(error, stdout, stderr) {
+        if(!error){
+            res.send(stdout).status(200);
+            console.log('done', stdout, stderr)
+        }
+        else{
+            res.send(error).status(400);
+            console.log(error);
+        }   
+    });
+    process.stdin.end();
+});
+
+app.get('/winfile/:fileName',(req, res)=>{
+    console.log("getting file url: "+ req.url + " fileName: " + req.fileName);
+    var filePath = 'D:\\ScanData\\' + req.fileName;
+    main.getFile(filePath, function(mes){
+        if(mes.data){
+            main.winData = mes.data;
+        }
+        res.send(mes);
+    })
+});
+
+app.get('/remoteExecute', (req, res)=>{
+    request('http://10.206.156.198:3005/executeBatch', function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+          console.log(body);
+          res.send(body.split('\n')[0]).status(200);
+        }
+        else{
+            res.send(error).status(400);
+        }
+    })
+})
+//linux
+app.get('/executeBatch', (req, res)=>{
+    var cmd = 'bash /tmp/scan_data_hdfs.sh';
+    const process = exec(cmd, function(error, stdout, stderr) {
+        if(!error){
+            res.send(stdout).status(200);
+            console.log('done', stdout, stderr)
+        }
+        else{
+            res.send(error).status(400);
+            console.log(error);
+        }   
+    });
+    process.stdin.end();
+});
+app.get('/grabError', (req, res)=>{
+    var path = '/data/flume-release/apache-flume-1.8.1-bin/logs/';
+    const process = exec(cmd, function(error, stdout, stderr) {
+        if(!error){
+            res.send(stdout).status(200);
+            console.log('done', stdout, stderr)
+        }
+        else{
+            res.send(error).status(400);
+            console.log(error);
+        }   
+    });
+    process.stdin.end();
+});
+
+app.get('/liuxfile/:fileName',(req, res)=>{
+    console.log("getting file url: "+ req.url + " fileName: " + req.fileName);
+    var filePath = '/tmp/scan/' + req.fileName;
+    main.getFile(filePath, function(mes){
+        if(mes.data){
+            main.linuxData = mes.data;
+        }
+        res.send(mes);
+    })
+});
+app.get('/latestFile', (req, res)=>{
+    var filePath = '/tmp/scan/';
+    // var filePath = 'd:\\ScanData\\';
+    main.getLatestFile(filePath, function(data){
+        res.send(data);
+    });
+});
+
+//fileHandler
+app.get('/fileCompare', (req, res)=>{
+    // if(!main.winData || !main.linuxData){
+    //     res.send("no data in cache").status(400);
+    //     main.getAllFile();
+    // }
+    // else{
+    //     main.compare(main.dataHandler(main.winData), main.dataHandler(main.linuxData));
+    // }
+    main.linuxDataHandler(main.linuxData);
+});
+
+app.post('/uploadFile', (req, res)=>{
+    var body = "";
+    req.on("data", function (chunk) {
+        body += chunk;
+    });
+
+    req.on("end", function(){
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end(body);
+    });
+    // var form = new formidable.IncomingForm();
+    // form.parse(req, function (err, fields, file) {
+    //   if(err){
+    //     res.status(400).send(err);
+    //   }
+    //   else if(file.files){
+    //     res.status(200).send(file.files.path);
+    //   }
+    //   else{
+    //     res.status(500).send("unknown");
+    //   }
+    // });
+});
+
+
+app.get('/getAllFile', (req, res)=>{
+    var fileName = req.query.fileName;
+    main.getAllFile(fileName, function(data){
+        res.send(data);
+    });
+});
+
+var main = function(){
+    return{
+        getFile: function(filePath, callback){
+            if(fs.existsSync(filePath)){
+                  fs.readFile(filePath, "utf8", function (err, data) {
+                    if (err) {
+                        callback(err);
+                    }
+                    callback({
+                      "code":"Done",
+                      "data": data,
+                      "mtime": fs.statSync(filePath).mtime
+                    });
+                  });
+                }
+                else{
+                    callback("cannot find file " + filePath);
+                }
+        },
+        getAllFile: function(fileName, callback){
+            // request('http://10.117.62.146:3005/winfile/scand_data_10-09-2018.csv', function (error, response, body) {
+            //     if (!error && response.statusCode == 200) {
+            //       var info = JSON.parse(body);
+            //       main.winData = info.data;
+            //       console.log(info);
+            //     }
+            // });
+            // request('http://10.206.156.198:3005/liuxfile/' + fileName, function (error, response, body) {
+            //     if (!error && response.statusCode == 200) {
+            //       var info = JSON.parse(body);
+            //     //   main.linuxData = info.data;
+            //     //   console.log(info);
+            //       main.linuxDataHandler(info.data, callback);
+            //     }
+            //     else{
+            //         console.log(error, response);
+            //     }
+            // })
+            main.getFile('D:\\Logs\\log_compare\\HDFSLogFileInfoQA_2018090920.csv', function(data){
+                callback(data);
+                //main.linuxDataHandler(data.data, callback);
+            });
+        },
+        getLatestFile: function(filePath, callback){
+            fs.readdir(filePath, function(err, files){
+                if (files) {
+                    result = files.map(function (fileName) {
+                        return {
+                            name: fileName,
+                            time: fs.statSync(filePath + '/' + fileName).mtime.getTime()
+                        };
+                    })
+                    .sort(function (a, b) {
+                        return a.time - b.time; })
+                    .map(function (v) {
+                        return v.name; 
+                    });
+                    callback(result[result.length-1]);
+                }
+                else{
+                    console.log("getLatestFile fail, please check file path: " + filePath);
+                }
+            });
+        }
+    }
+}();
+
+app.listen(3005, () => console.log('Example app listening on port 3005!'))

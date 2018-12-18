@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Retransportation tool</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- <link rel="stylesheet" type="text/css" media="screen" href="/main.css" /> -->
+    <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="//bootswatch.com/cosmo/bootstrap.min.css" rel="stylesheet">
+    <!-- <link rel="stylesheet" type="text/css" media="screen" href="/bootstrap.min.css" /> -->
+    <link rel="stylesheet" type="text/css" media="screen" href="/css/tabs.css" />
+    <link rel="stylesheet" type="text/css" media="screen" href="/css/main.css" />
+    <!-- <link rel="stylesheet" type="text/css" media="screen" href="/loading.css" /> -->
+
+    <link rel="stylesheet" type="text/css" media="screen" href="/css/datatables.min.css" />
+    <script src="/js/jquery.min.js"></script>
+    <script src="/js/datatables.min.js"></script>
+    <script src="/js/jquery.form.js"></script>
+    <script src="/js/popper.min.js"></script>
+    <script src="/js/bootstrap.min.js"></script>
+    <script src="/js/jquery-ui-1.10.4.custom.js"></script>
+    <script src="/js/jquery.csv.min.js"></script>
+    <script src="/js/check-duplicate.js"></script>
+    <script src="/js/merge-and-compare.js"></script>
+    <script src="/js/fileHandler.js"></script>
+    <!-- <script src="/js/HDFShandler.js"></script> -->
+    <script src="/js/main.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="content">
+                <div class="tabs-left">
+                    <ul class="nav nav-tabs">
+                        <li><a href="#a" data-toggle="tab"><span class="glyphicon glyphicon-time"></span></a></li>
+                        <li class="active"><a href="#b" data-toggle="tab"><span class="glyphicon glyphicon-star"></span></a></li>
+                        <li><a href="#c" data-toggle="tab"><span class="glyphicon glyphicon-cog"></span></a></li>
+                    </ul>
+                    <div class="tab-content">
+                        <div class="tab-pane " id="a">
+                            <h3>Check remote HDFS file</h3>
+                            <div class="duplicate-search-panel">
+                                    <!-- <button id="generate_log" class="btn btn-primary">Generate log from HDFS</button> -->
+                                    <div class="input-group-prepend">
+                                            <span class="input-group-text" id="basic-addon1">@</span>
+                                            <input id="isource" type="text" value="HDFSLogFileInfoQA_2018090920.csv">
+                                            <button id="get_result" class="btn btn-primary">Get result</button>
+                                    </div>
+                                </div>
+                                <div class="duplicate-filter-panel">
+                                    <span>Engine:</span>  
+                                    <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                                        <label class="btn btn-secondary active">
+                                            <input type="radio" name="options" id="option1" autocomplete="off" checked> all
+                                        </label>
+                                        <label class="btn btn-secondary">
+                                            <input type="radio" name="options" id="option2" autocomplete="off"> mpld-ddnmcib01a
+                                        </label>
+                                        <label class="btn btn-secondary">
+                                            <input type="radio" name="options" id="option3" autocomplete="off"> mpld-ddnmcib01b
+                                        </label>
+                                    </div>
+                                    <button id="btn-warning" class="btn btn-primary">Check warning</button>
+                                    <div class="detail-filter-panel">
+                                            <span>Toggle column: </span>
+                                            <a class="toggle-vis btn btn-outline-primary" data-column="0">fileSize</a>
+                                            <a class="toggle-vis btn btn-outline-primary" data-column="1">updateDate</a>
+                                            <a class="toggle-vis btn btn-outline-primary" data-column="2">updateTime</a>
+                                            <a class="toggle-vis btn btn-outline-primary" data-column="3">fileDate</a>
+                                            <a class="toggle-vis btn btn-outline-primary" data-column="4">fileDetail</a>
+                                            <a class="toggle-vis btn btn-outline-primary" data-column="5">fileName</a>
+                                            <a class="toggle-vis btn btn-outline-primary" data-column="6">engine</a>
+                                            <a class="toggle-vis btn btn-outline-primary" data-column="7">warning</a>
+                                            <a class="toggle-vis btn btn-outline-primary" data-column="8">fileFull</a>
+                                    </div>
+                                </div>
+                                <div id="result" class="container-fluid duplicate-result-panel">
+                                    <table id="checkTable" class="table table-striped table-bordered" width="100%"></table>
+                                </div>
+                        </div>
+                        <div class="tab-pane active input-group mb-3" id="b">
+                            <h3>Compare for Win with HDFS</h3>
+                            <div class="custom-filterDate">
+                                <input id="beginDate" type="date" value="2018-10-10">
+                                <input id="endDate" type="date" value="2018-11-12">
+                                
+                            </div>
+                            <div class="custom-file">
+                                <!-- <form id="uploadFile" action="uploadFile" method="post" enctype="multipart/form-data">
+                                    <input type="file" name="files">
+                                    <input type="submit">
+                                </form> -->
+                                <div class="controlPanel-hdfs">
+                                    <input type="file" class="custom-file-input inputfile" id="hdfsFile" >
+                                    <label for="hdfsFile">Upload HDFS file</label>
+                                    <input type="button" value="Show HDFS Table" id="gernateHDFSData">
+                                    <input type="button" value="Clear HDFS Data" id="clearHDFSData">
+                                    <input type="button" value="Merge Data" id="mergeHDFSData">
+                                    <input type="button" value="Check Duplicate Data" id="checkDuplicateHDFSData">
+                                    <div><span>Empty</span></div>
+                                </div>
+                                <div class="controlPanel-cib">
+                                    <input type="file" class="custom-file-input inputfile" id="cibFile" multiple="">
+                                    <label for="cibFile">Upload CIBOG file</label>
+                                    <input type="button" value="Show CIB Table" id="gernateCIBData">
+                                    <input type="button" value="Clear CIB Data" id="clearCIBData">
+                                    <div><span>Empty</span></div>
+                                </div>
+                                <div class="controlPanel-merge">
+                                    <input type="button" value="Export Data" id="exportData">
+                                    <input type="button" value="Merge Together" id="mergeAllData">
+                                    <div><span>Not ready</span></div>
+                                </div>
+                                <div class="controlPanel-filter">
+                                <span>Filter:</span>
+                                    <select class="select-engine">
+                                        <option value="All" >All</option>
+                                        <option value="uk1p-ddnmcib03a" >uk1p-ddnmcib03a</option>
+                                        <option value="uk2p-ddnmcib03a" >uk2p-ddnmcib03a</option>
+                                        <option value="uk1p-ddnmcib02a" >uk1p-ddnmcib02a</option>
+                                        <option value="uk2p-ddnmcib02a" >uk2p-ddnmcib02a</option>
+                                    </select>
+                                    <select class="select-warning">
+                                        <option value="All" >All</option>
+                                        <option value="Warning" >Warning</option>
+                                        <option value="Duplicate" >Duplicate</option>
+                                        <option value="Normal" >Normal</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="detail-filter-panel">
+                                <a class="toggle-vis btn btn-outline-primary" data-column="0">index</a>
+                                <a class="toggle-vis btn btn-outline-primary" data-column="1">fileSize</a>
+                                <a class="toggle-vis btn btn-outline-primary" data-column="2">updateDate</a>
+                                <a class="toggle-vis btn btn-outline-primary" data-column="3">updateTime</a>
+                                <a class="toggle-vis btn btn-outline-primary" data-column="4">filePath</a>
+                                <a class="toggle-vis btn btn-outline-primary" data-column="5">fileDetail</a>
+                                <a class="toggle-vis btn btn-outline-primary" data-column="6">fileCategory</a>
+                                <a class="toggle-vis btn btn-outline-primary" data-column="7">fileDate</a>
+                                <a class="toggle-vis btn btn-outline-primary" data-column="8">fileName</a>
+                                <a class="toggle-vis btn btn-outline-primary" data-column="9">engine</a>
+                                <a class="toggle-vis btn btn-outline-primary" data-column="10">warning</a>
+                                <a class="toggle-vis btn btn-outline-primary" data-column="11">token</a>
+                        </div>
+                            <div id="compareResult" class="container-fluid duplicate-result-panel">
+                                <table id="compareTable" class="table table-striped table-bordered" width="100%"></table>
+                            </div>
+                        </div>
+                        <div class="tab-pane" id="c">
+                            <h3>Setting page</h3>
+                        </div>
+                        <div class="tab-pane" id="d">DDDDDSecondo sed ac orci quis tortor imperdiet venenatis. Duis elementum auctor accumsan. Aliquam in felis sit amet augue.</div>
+                        <div class="tab-pane" id="e">EEEEEThirdamuno, ipsum dolor sit amet, consectetur adipiscing elit. Duis pharetra varius quam sit amet vulputate. Quisque mauris augue, molestie tincidunt condimentum vitae.</div>
+                        <div class="tab-pane" id="f">FFFFFFThirdamuno, ipsum dolor sit amet, consectetur adipiscing elit. Duis pharetra varius quam sit amet vulputate. Quisque mauris augue, molestie tincidunt condimentum vitae.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
