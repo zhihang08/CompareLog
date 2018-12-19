@@ -134,43 +134,68 @@ var hDFSFileHandler = function(){
         },
 
         fileMerge: function(source){
-            var res = [];
-            var bandList = [];
-            var size = 0;
-            var mergedFile = [];
-            source.forEach((ele, index, array)=>{
-                console.log("handling NO." + index);
-                size = 0;
-                mergedFile = [];
-                array.forEach((e, i)=>{
-                    if((index != i)&& //not current element
-                    (ele.filename == e.filename)&& //equal name
-                    (Math.abs(ele.date - e.date) < 86400001)&& //file date within 1 day
-                    //(ele[7] == e[7])&& //equal file date
-                    (ele.engine == e.engine)&& //equal engine name
-                    (ele.hasDateFolder == e.hasDateFolder)&& //both have date folder or not have
-                    (!bandList.includes(e.index)) &&  //not in band list
-                    (Math.abs(ele.update_date - e.update_date) < 259200000)) //update date within 3 day
-                    {
-                        size += e.size;
-                        bandList.push(e.index);
-                        mergedFile.push(e)
-                    }
-                })
-                if(bandList.indexOf(ele.index) == -1)
-                {
-                    mergedFile.push(ele);
-                    size += ele.size;
-                    bandList.push(ele.index);
-                    // var newEle = $.extend(true, [], ele);
-                    var newEle = extend(true, {}, ele);
-                    newEle.size = size;
-                    newEle.merged_data_set = mergedFile;
-                    res.push(newEle);
-                }
-            })
+            var res;
+            //split to two array by hasDateFolder;
+            var folderDataSet = source.filter((val,index,arr) => {
+                return val.hasDateFolder == true;
+            });
+            var outsideDataSet = source.filter((val,index,arr) => {
+                return val.hasDateFolder == false;
+            });
+            //filter with same filename + enginename 
             return res;
         },
+        filterSame: function(source, paramSet){
+            var bandList = [];
+            source.filter(function(ele, index, array){
+                array.forEach(function(e, i){
+                    if((index < i) && (ele.engineName == e.engine) && (ele.filename == e.filename) && (!bandList.includes(e.index))){
+                        bandList.push(e.index);
+                        return true;
+                    }
+                    else{
+                        return false;
+                    }
+                })
+            });
+        },
+        // fileMerge: function(source){
+        //     var res = [];
+        //     var bandList = [];
+        //     var size = 0;
+        //     var mergedFile = [];
+        //     source.forEach((ele, index, array)=>{
+        //         size = 0;
+        //         mergedFile = [];
+        //         array.forEach((e, i)=>{
+        //             if((index != i)&& //not current element
+        //             (ele.filename == e.filename)&& //equal name
+        //             (Math.abs(ele.date - e.date) < 86400001)&& //file date within 1 day
+        //             //(ele[7] == e[7])&& //equal file date
+        //             (ele.engine == e.engine)&& //equal engine name
+        //             (ele.hasDateFolder == e.hasDateFolder)&& //both have date folder or not have
+        //             (!bandList.includes(e.index)) &&  //not in band list
+        //             (Math.abs(ele.update_date - e.update_date) < 259200000)) //update date within 3 day
+        //             {
+        //                 size += e.size;
+        //                 bandList.push(e.index);
+        //                 mergedFile.push(e)
+        //             }
+        //         })
+        //         if(bandList.indexOf(ele.index) == -1)
+        //         {
+        //             mergedFile.push(ele);
+        //             size += ele.size;
+        //             bandList.push(ele.index);
+        //             // var newEle = $.extend(true, [], ele);
+        //             var newEle = extend(true, {}, ele);
+        //             newEle.size = size;
+        //             newEle.merged_data_set = mergedFile;
+        //             res.push(newEle);
+        //         }
+        //     })
+        //     return res;
+        // },
 
         fileCheck: function(source){
             var res = null;
