@@ -46,47 +46,69 @@ var mAC = function(){
 
         initHDFSFileReader: function(){
             $("#hdfsFile").on('change', function(){
-                var fileReader  = new FileReader();
-                fileReader.onload = function() {
-                    //read file content
-                    var arrayBuffer  = this.result;
-                    var csvfile =  $.csv.toArrays(arrayBuffer);
-
-                    //handle content
-                    var handleFilePromise = new Promise(function(resolve, reject){
-                        resolve(hDFSFileHandler.hdfsFileManager(csvfile));
-                    })
-
-                    //filter Date
-                    handleFilePromise.then(function(value) {
-                        var data = mAC.filterDate(value, $("#beginDate").val(), $("#endDate").val(), 2);
-                        mAC.filterData = data;
+                var file_data = this.files[0];
+                var form_data = new FormData();
+                var param = JSON.stringify({'from': $("#beginDate").val(), 'to': $("#endDate").val()});
+                form_data.append("param", param);
+                form_data.append("files", file_data);
+                $.ajax({
+                    url: "/uploadFile",
+                    dataType: 'script',
+                    cache: false,
+                    contentType: false,
+                    processData: false,
+                    data: form_data,                         // Setting the data attribute of ajax with file_data
+                    type: 'post',
+                    success: function(data, status, xhttp){
+                        console.log(data, status);
                         $(".controlPanel-hdfs").find("span").text("Uploaded");
-                        // mAC.generateTable(data, mAC.hdfsColumnDef);
-                    });
+                    }
+                })
+            })
+            // $("#hdfsFile").on('change', function(){
+            //     var fileReader  = new FileReader();
+            //     fileReader.onload = function() {
+            //         //read file content
+            //         var arrayBuffer  = this.result;
+            //         var csvfile =  $.csv.toArrays(arrayBuffer);
+            //         //handle content
+            //         var handleFilePromise = new Promise(function(resolve, reject){
+            //             resolve(hDFSFileHandler.hdfsFileManager(csvfile));
+            //         })
+
+            //         //filter Date
+            //         handleFilePromise.then(function(value) {
+            //             var data = mAC.filterDate(value, $("#beginDate").val(), $("#endDate").val(), 2);
+            //             mAC.filterData = data;
+            //             $(".controlPanel-hdfs").find("span").text("Uploaded");
+            //             // mAC.generateTable(data, mAC.hdfsColumnDef);
+            //         });
                     
-                    // var warningData = hdfsHandler.checkWarning(filterResult, null);
-                    // var mergedFiles = hdfsHandler.mergeSize(hdfsHandler.linuxRepo);
-                }
-                if(this.files.length > 0)
-                    fileReader.readAsBinaryString(this.files[0]);
-            });
+            //         // var warningData = hdfsHandler.checkWarning(filterResult, null);
+            //         // var mergedFiles = hdfsHandler.mergeSize(hdfsHandler.linuxRepo);
+            //     }
+            //     if(this.files.length > 0)
+            //         fileReader.readAsBinaryString(this.files[0]);
+            // });
             $("#mergeHDFSData").click(function(){
-                if(mAC.filterData != null)
-                {
-                    $(".controlPanel-hdfs").find("span").text("Start to merge data");
-                    var mergePromise = new Promise((resolve, reject)=>{
-                        mAC.mergedData = hDFSFileHandler.fileMerge(mAC.filterData);
-                        resolve(mAC.mergedData);
-                    })
-                    mergePromise.then((value)=>{
-                        mAC.filterData = value;
-                        $(".controlPanel-hdfs").find("span").text("Finish merge data");
-                    })
-                }
-                else{
-                    alert("Table not ready yet!")
-                }
+                $.get("mergeDuplicateRecord", function(res, data, status){
+                    console.log(data);
+                });
+                // if(mAC.filterData != null)
+                // {
+                //     $(".controlPanel-hdfs").find("span").text("Start to merge data");
+                //     var mergePromise = new Promise((resolve, reject)=>{
+                //         mAC.mergedData = hDFSFileHandler.fileMerge(mAC.filterData);
+                //         resolve(mAC.mergedData);
+                //     })
+                //     mergePromise.then((value)=>{
+                //         mAC.filterData = value;
+                //         $(".controlPanel-hdfs").find("span").text("Finish merge data");
+                //     })
+                // }
+                // else{
+                //     alert("Table not ready yet!")
+                // }
             });
             $("#checkDuplicateHDFSData").click(function(){
                 mAC.filterData = hDFSFileHandler.fileCheck(mAC.filterData);

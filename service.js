@@ -6,8 +6,12 @@ const request = require('request');
 const formidable = require('formidable');
 const execFile = require('child_process').execFile;
 const exec = require('child_process').exec;
+const MongoClient = require('mongodb').MongoClient;
+const url = "mongodb://localhost:27017/";
+const repo = "LogRepo";
 
 var fileHandler = require('./Tools/merge-and-compare.js');
+var hDFSFileHandler = require('./Tools/fileHandler.js');
 
 app.use(express.static(path.join(__dirname, '/public')));
 app.use(express.static(path.join(__dirname, '/client')));
@@ -27,49 +31,41 @@ app.get('/', function (req, res) {
 
 //fileHandler API
 app.post('/uploadFile', (req, res)=>{
-    var body = "";
-    req.on("data", function (chunk) {
-        body += chunk;
+    var form = new formidable.IncomingForm();
+    form.parse(req, function (err, fields, file) {
+      if(err){
+        res.status(400).send(err);
+      }
+      else if(file.files){
+        fs.readFile(file.files.path, function(error, data){
+            if(error){
+                throw error;
+            }
+            hDFSFileHandler.readCSV(data, function(data){
+                var result = hDFSFileHandler.hdfsFileManager(data);
+                main.deleteCollection("LogsCollection");
+                main.insertData("LogsCollection", result.valid);
+                // main.deleteCollection("LogsCollection_dropped");
+                // main.insertData("LogsCollection_dropped", result.invalid);
+            });
+        })
+        res.status(200).send(file.files.path);
+      }
+      else{
+        res.status(500).send("unknown");
+      }
     });
-
-    req.on("end", function(){
-        res.writeHead(200, { "Content-Type": "text/html" });
-        res.end(body);
-    });
-    // var form = new formidable.IncomingForm();
-    // form.parse(req, function (err, fields, file) {
-    //   if(err){
-    //     res.status(400).send(err);
-    //   }
-    //   else if(file.files){
-    //     res.status(200).send(file.files.path);
-    //   }
-    //   else{
-    //     res.status(500).send("unknown");
-    //   }
-    // });
 });
 
-app.get('/fileCompare', (req, res)=>{
-    // if(!main.winData || !main.linuxData){
-    //     res.send("no data in cache").status(400);
-    //     main.getAllFile();
-    // }
-    // else{
-    //     main.compare(main.dataHandler(main.winData), main.dataHandler(main.linuxData));
-    // }
-    main.linuxDataHandler(main.linuxData);
-});
 
-app.get('/fileMerge', (req, res)=>{
-    // if(!main.winData || !main.linuxData){
-    //     res.send("no data in cache").status(400);
-    //     main.getAllFile();
-    // }
-    // else{
-    //     main.compare(main.dataHandler(main.winData), main.dataHandler(main.linuxData));
-    // }
-    main.linuxDataHandler(main.linuxData);
+app.get('/mergeDuplicateRecord', (req, res)=>{
+    try {
+        main.fileMerge();
+        res.status(200).send("done");
+    } catch (error) {
+        res.status(500).send("unknown");
+    }
+    
 });
 
 app.get('/generateResult', (req, res)=>{
@@ -81,6 +77,76 @@ app.get('/generateResult', (req, res)=>{
 
 var main = function(){
     return{
+        queryData: function (target, query) {
+            MongoClient.connect(url, function(err, db) {
+                if (err) throw err;
+                var dbo = db.db(repo);
+                // var query = { address: "Park Lane 38" };
+                dbo.collection(target).find(query).toArray(function(err, result) {
+                  if (err) throw err;
+                  console.log(result);
+                  db.close();
+                   res = result;
+                });
+              });
+              return res;
+        },
+        insertData: function(target, data){
+            try {
+                if (data.length > 0) {
+                    var length = data.length;
+                    MongoClient.connect(url, function(err, db) {
+                        if (err) throw err;
+                        var dbo = db.db(repo);
+                        dbo.collection(target).insertMany(data, function(err, res) {
+                            if (err) throw err;
+                            console.log(target + " collection " + length + " data inserted");
+                            db.close();
+                        });
+                    });
+                }
+            } catch (error) {
+                console.log(error);
+            }
+        },
+        deleteCollection: function(target){
+            MongoClient.connect(url, function(err, db) {
+                if (err) throw err;
+                var dbo = db.db(repo);
+                dbo.collection(target).drop(function(err, delOK) {
+                  if (err) throw err;
+                  if (delOK) console.log("Collection deleted");
+                  db.close();
+                });
+              });
+        },
+        sort: function (target, mysort) {
+            var result = null;
+            MongoClient.connect(url, function(err, db) {
+                if (err) throw err;
+                var dbo = db.db(repo);
+                //var mysort = { name: 1 };
+                dbo.collection(target).find().sort(mysort).toArray(function(err, res) {
+                  if (err) throw err;
+                  result = res;
+                  db.close();
+                });
+              });
+            return result;
+        },
+        findAll: function(target){
+            var result = null;
+            MongoClient.connect(url, function(err, db) {
+                if (err) throw err;
+                var dbo = db.db(repo);
+                dbo.collection(target).find({}).toArray(function(err, res) {
+                  if (err) throw err;
+                  result = res;
+                  db.close();
+                });
+              });
+            return result;
+        },
         generateResult: function(data, callback){
             if(fs.existsSync(filePath)){
                   fs.readFile(filePath, "utf8", function (err, data) {
@@ -122,8 +188,11 @@ var main = function(){
                 //main.linuxDataHandler(data.data, callback);
             });
         },
-        fileMerge: function(data, callback){
-           
+        fileMerge: function(callback){
+            var origin = main.findAll("LogsCollection");
+            var result = hDFSFileHandler.fileMerge(origin);
+            main.deleteCollection("LogsCollection_merged");
+            main.insertData("LogsCollection_merged", result);
         }
     }
 }();
