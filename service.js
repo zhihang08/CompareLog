@@ -37,16 +37,16 @@ app.post('/uploadFile', (req, res)=>{
         res.status(400).send(err);
       }
       else if(file.files){
+        var dateparam = JSON.parse(fields.param);
+        dateparam.from = new Date(dateparam.from);
+        dateparam.to = new Date(dateparam.to);
         fs.readFile(file.files.path, function(error, data){
             if(error){
                 throw error;
             }
             hDFSFileHandler.readCSV(data, function(data){
-                var result = hDFSFileHandler.hdfsFileManager(data);
-                main.deleteCollection("LogsCollection");
+                var result = hDFSFileHandler.hdfsFileManager(data, dateparam);
                 main.insertData("LogsCollection", result.valid);
-                // main.deleteCollection("LogsCollection_dropped");
-                // main.insertData("LogsCollection_dropped", result.invalid);
             });
         })
         res.status(200).send(file.files.path);
@@ -98,11 +98,13 @@ var main = function(){
                     MongoClient.connect(url, function(err, db) {
                         if (err) throw err;
                         var dbo = db.db(repo);
-                        dbo.collection(target).insertMany(data, function(err, res) {
-                            if (err) throw err;
-                            console.log(target + " collection " + length + " data inserted");
-                            db.close();
-                        });
+                        dbo.collection(target).drop().then(function () {
+                            dbo.collection(target).insertMany(data, function(err, res) {
+                                if (err) throw err;
+                                console.log(target + " collection " + length + " data inserted");
+                                db.close();
+                            });
+                        })
                     });
                 }
             } catch (error) {
@@ -134,18 +136,16 @@ var main = function(){
               });
             return result;
         },
-        findAll: function(target){
-            var result = null;
+        findAll: function(target, callback){
             MongoClient.connect(url, function(err, db) {
                 if (err) throw err;
                 var dbo = db.db(repo);
                 dbo.collection(target).find({}).toArray(function(err, res) {
                   if (err) throw err;
-                  result = res;
                   db.close();
+                  callback(res)
                 });
               });
-            return result;
         },
         generateResult: function(data, callback){
             if(fs.existsSync(filePath)){
@@ -189,10 +189,14 @@ var main = function(){
             });
         },
         fileMerge: function(callback){
-            var origin = main.findAll("LogsCollection");
-            var result = hDFSFileHandler.fileMerge(origin);
-            main.deleteCollection("LogsCollection_merged");
-            main.insertData("LogsCollection_merged", result);
+            try {
+                main.findAll("LogsCollection", function(data){
+                    var result = hDFSFileHandler.fileMerge(data);
+                    main.insertData("LogsCollection_merged", result);
+                });
+            } catch (error) {
+                console.log(error);
+            }
         }
     }
 }();

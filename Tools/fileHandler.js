@@ -1,4 +1,5 @@
 var parse = require('csv-parse');
+var extend = require('node.extend');
 var hDFSFileHandler = function(){
     return{
         fileElement:[
@@ -12,7 +13,7 @@ var hDFSFileHandler = function(){
                 callback(rows);
             })
         },
-        hdfsFileManager: function(source){
+        hdfsFileManager: function(source, param){
             var res = {
                 "valid":[],
                 "invalid":[]
@@ -27,14 +28,13 @@ var hDFSFileHandler = function(){
                         return ele;
                     }
                 })
-                var afterLength = source.length;
-                console.log("filter from " + preLength + " to " + afterLength);
+                var midLength = source.length;
                 source = source.map((ele)=>{
                     return hDFSFileHandler.lineSplit(ele, ' ');
                 });
 
                 source.map((ele, index)=>{
-                    frag = hDFSFileHandler.fragHandler(ele, index);
+                    frag = hDFSFileHandler.fragHandler(ele, index, param);
                     if(Object.keys(frag.pass).length > 0)
                     {
                         res.valid.push(frag.pass);
@@ -42,7 +42,9 @@ var hDFSFileHandler = function(){
                     else{
                         res.invalid.push(frag.invalid)
                     }
-                })
+                });
+                var afterLength = res.valid.length;
+                console.log("filter from " + preLength  + " to " + midLength + " to " + afterLength);
                 
             } catch (error) {
                 console.log("hdfsFileManager: " + error.message)
@@ -75,7 +77,7 @@ var hDFSFileHandler = function(){
             return res;
         },
 
-        fragHandler: function(line, index){
+        fragHandler: function(line, index, param){
             var resultLine = {
                 "pass" : {},
                 "invalid": {}
@@ -105,41 +107,28 @@ var hDFSFileHandler = function(){
             var recordDetailPurify = hDFSFileHandler.removeLastElement(recordDetail, '.log', 1);
             var recordDetailFragement = recordDetailPurify.split('_');
             var recordCategory = recordDetailFragement[2].split('.')[0];
-            if(recordDetail != null && recordDate!= ""){
-                resultLine.pass = {
-                    "index": index,
-                    "size": parseInt(line[indexPoint]),//size
-                    "update date": new Date(line[indexPoint + 1]),//update date
-                    "update time": line[indexPoint + 2],//update time
-                    "filePath": line[indexPoint + 3],//filePath
-                    "fileDetail": recordDetailPurify,//fileDetail
-                    "category": recordCategory, //category.
-                    "date": hDFSFileHandler.dateConverter(recordDate),
-                    "filename": recordDetailFragement[2], //filename
-                    "engine": recordDetailFragement[1],//engine
-                    "warning": "", //warning hold place`
-                    "token": "", //token hold place,
-                    "merged data set": "", //hold place for merged data set
-                    hasDateFolder
-                };
+            var dataset = {
+                "index": index,
+                "size": parseInt(line[indexPoint]),//size
+                "update_date": new Date(line[indexPoint + 1]),//update date
+                "update_time": line[indexPoint + 2],//update time
+                "filePath": line[indexPoint + 3],//filePath
+                "fileDetail": recordDetailPurify,//fileDetail
+                "category": recordCategory, //category.
+                "date": "", //file date
+                "filename": recordDetailFragement[2], //filename
+                "engine": recordDetailFragement[1],//engine
+                "warning": "", //warning hold place`
+                "token": "", //token hold place,
+                "merged_data_set": "", //hold place for merged data set
+                "hasDateFolder": hasDateFolder
+            }
+            if(recordDetail != null && recordDate!= "" && dataset.update_date > param.from && dataset.update_date < param.to){
+                dataset.date = hDFSFileHandler.dateConverter(recordDate);
+                resultLine.pass = dataset;
             }
             else{
-                resultLine.invalid = {
-                    "index": index,
-                    "size": line[indexPoint],//size
-                    "update date": line[indexPoint + 1],//update date
-                    "update time": line[indexPoint + 2],//update time
-                    "filePath": line[indexPoint + 3],//filePath
-                    "fileDetail": recordDetailPurify,//fileDetail
-                    "category": recordCategory, //category.
-                    "date":"",
-                    "filename": recordDetailFragement[2], //filename
-                    "engine": recordDetailFragement[1],//engine
-                    "warning": "", //warning hold place`
-                    "token": "", //token hold place,
-                    "merged data set": "", //hold place for merged data set
-                    hasDateFolder
-                };
+                resultLine.invalid = dataset;
             }
             return resultLine;
         },
@@ -150,31 +139,33 @@ var hDFSFileHandler = function(){
             var size = 0;
             var mergedFile = [];
             source.forEach((ele, index, array)=>{
+                console.log("handling NO." + index);
                 size = 0;
                 mergedFile = [];
                 array.forEach((e, i)=>{
                     if((index != i)&& //not current element
-                    (ele[8] == e[8])&& //equal name
-                    (Math.abs(new Date(ele[7]) - new Date(e[7])) < 86400001)&& //file date within 1 day
+                    (ele.filename == e.filename)&& //equal name
+                    (Math.abs(ele.date - e.date) < 86400001)&& //file date within 1 day
                     //(ele[7] == e[7])&& //equal file date
-                    (ele[9] == e[9])&& //equal engine name
-                    (ele[13] == e[13])&& //both have date folder or not have
-                    (!bandList.includes(e[0])) &&  //not in band list
-                    (Math.abs(new Date(ele[2]) - new Date(e[2])) < 259200000)) //update date within 3 day
+                    (ele.engine == e.engine)&& //equal engine name
+                    (ele.hasDateFolder == e.hasDateFolder)&& //both have date folder or not have
+                    (!bandList.includes(e.index)) &&  //not in band list
+                    (Math.abs(ele.update_date - e.update_date) < 259200000)) //update date within 3 day
                     {
-                        size += parseInt(e[1]);
-                        bandList.push(e[0]);
+                        size += e.size;
+                        bandList.push(e.index);
                         mergedFile.push(e)
                     }
                 })
-                if(bandList.indexOf(ele[0]) == -1)
+                if(bandList.indexOf(ele.index) == -1)
                 {
                     mergedFile.push(ele);
-                    size += parseInt(ele[1]);
-                    bandList.push(ele[0]);
-                    var newEle = $.extend(true, [], ele);
-                    newEle[1] = size;
-                    newEle[12] = mergedFile;
+                    size += ele.size;
+                    bandList.push(ele.index);
+                    // var newEle = $.extend(true, [], ele);
+                    var newEle = extend(true, {}, ele);
+                    newEle.size = size;
+                    newEle.merged_data_set = mergedFile;
                     res.push(newEle);
                 }
             })
