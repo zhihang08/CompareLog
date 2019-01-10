@@ -37,7 +37,7 @@ function exportToCSV(data, name) {
 }
 
 $(function(){
-    checkDuplicate.init();
+    // checkDuplicate.init();
     mAC.init();
     setHeight();
 });

@@ -10,7 +10,6 @@ const MongoClient = require('mongodb').MongoClient;
 const url = "mongodb://localhost:27017/";
 const repo = "LogRepo";
 
-var fileHandler = require('./Tools/merge-and-compare.js');
 var hDFSFileHandler = require('./Tools/fileHandler.js');
 
 app.use(express.static(path.join(__dirname, '/public')));
@@ -46,7 +45,7 @@ app.post('/uploadFile', (req, res)=>{
             }
             hDFSFileHandler.readCSV(data, function(data){
                 var result = hDFSFileHandler.hdfsFileManager(data, dateparam);
-                main.insertData("LogsCollection", result.valid);
+                main.refreshData("LogsCollection", result.valid);
             });
         })
         res.status(200).send(file.files.path);
@@ -57,7 +56,6 @@ app.post('/uploadFile', (req, res)=>{
     });
 });
 
-
 app.get('/mergeDuplicateRecord', (req, res)=>{
     try {
         main.fileMerge();
@@ -65,12 +63,19 @@ app.get('/mergeDuplicateRecord', (req, res)=>{
     } catch (error) {
         res.status(500).send("unknown");
     }
-    
 });
 
-app.get('/generateResult', (req, res)=>{
-    var fileName = req.query.fileName;
-    main.getAllFile(fileName, function(data){
+app.get('/checkWarning', (req, res)=>{
+    try {
+        main.checkWarning();
+        res.status(200).send("done");
+    } catch (error) {
+        res.status(500).send("unknown");
+    }
+});
+
+app.get('/getMergeResult', (req, res)=>{
+    main.findAll("LogsCollection_merged", function(data){
         res.send(data);
     });
 });
@@ -81,7 +86,6 @@ var main = function(){
             MongoClient.connect(url, function(err, db) {
                 if (err) throw err;
                 var dbo = db.db(repo);
-                // var query = { address: "Park Lane 38" };
                 dbo.collection(target).find(query).toArray(function(err, result) {
                   if (err) throw err;
                   console.log(result);
@@ -91,6 +95,26 @@ var main = function(){
               });
               return res;
         },
+        refreshData: function(target, data){
+            try {
+                if (data && data.length > 0) {
+                    var length = data.length;
+                    MongoClient.connect(url, function(err, db) {
+                        if (err) throw err;
+                        var dbo = db.db(repo);
+                        dbo.collection(target).remove().then(function () {
+                            dbo.collection(target).insertMany(data, function(err, res) {
+                                if (err) throw err;
+                                console.log(target + " collection " + length + " data inserted");
+                                db.close();
+                            });
+                        })
+                    });
+                }
+            } catch (error) {
+                console.log(error);
+            }
+        },
         insertData: function(target, data){
             try {
                 if (data.length > 0) {
@@ -98,13 +122,11 @@ var main = function(){
                     MongoClient.connect(url, function(err, db) {
                         if (err) throw err;
                         var dbo = db.db(repo);
-                        dbo.collection(target).drop().then(function () {
-                            dbo.collection(target).insertMany(data, function(err, res) {
-                                if (err) throw err;
-                                console.log(target + " collection " + length + " data inserted");
-                                db.close();
-                            });
-                        })
+                        dbo.collection(target).insertMany(data, function(err, res) {
+                            if (err) throw err;
+                            console.log(target + " collection " + length + " data inserted");
+                            db.close();
+                        });
                     });
                 }
             } catch (error) {
@@ -191,8 +213,18 @@ var main = function(){
         fileMerge: function(callback){
             try {
                 main.findAll("LogsCollection", function(data){
-                    var result = hDFSFileHandler.fileMerge(data);
-                    main.insertData("LogsCollection_merged", result);
+                    var result = hDFSFileHandler.fileIteratorMerge(data);
+                    main.refreshData("LogsCollection_merged", result);
+                });
+            } catch (error) {
+                console.log(error);
+            }
+        },
+        checkWarning: function(callback){
+            try {
+                main.findAll("LogsCollection_merged", function(data){
+                    var result = hDFSFileHandler.fileIteratorCheck(data);
+                    main.refreshData("LogsCollection_merged", result);
                 });
             } catch (error) {
                 console.log(error);

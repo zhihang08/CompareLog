@@ -2,6 +2,7 @@ var parse = require('csv-parse');
 var extend = require('node.extend');
 var hDFSFileHandler = function(){
     return{
+        //acceptable log type
         fileElement:[
             "complianceProgress.log",
             "MLLIP.RECORD",
@@ -116,11 +117,11 @@ var hDFSFileHandler = function(){
                 "fileDetail": recordDetailPurify,//fileDetail
                 "category": recordCategory, //category.
                 "date": "", //file date
-                "filename": recordDetailFragement[2], //filename
+                "fileName": recordDetailFragement[2], //filename
                 "engine": recordDetailFragement[1],//engine
                 "warning": "", //warning hold place`
                 "token": "", //token hold place,
-                "merged_data_set": "", //hold place for merged data set
+                "merged_data_set": [], //hold place for merged data set
                 "hasDateFolder": hasDateFolder
             }
             if(recordDetail != null && recordDate!= "" && dataset.update_date > param.from && dataset.update_date < param.to){
@@ -134,109 +135,157 @@ var hDFSFileHandler = function(){
         },
 
         fileMerge: function(source){
-            var res;
-            //split to two array by hasDateFolder;
-            var folderDataSet = source.filter((val,index,arr) => {
-                return val.hasDateFolder == true;
-            });
-            var outsideDataSet = source.filter((val,index,arr) => {
-                return val.hasDateFolder == false;
-            });
-            //filter with same filename + enginename 
-            return res;
-        },
-        filterSame: function(source, paramSet){
-            var bandList = [];
-            source.filter(function(ele, index, array){
-                array.forEach(function(e, i){
-                    if((index < i) && (ele.engineName == e.engine) && (ele.filename == e.filename) && (!bandList.includes(e.index))){
-                        bandList.push(e.index);
-                        return true;
+            var size = 0;
+            var mergedFile = [];
+            source.forEach((ele, index, array)=>{
+                if (ele == null) {
+                    return;
+                }
+                size = ele.size;
+                mergedFile = [];
+                for (let i = index + 1, len = array.length - index - 1; i < len; i++) {
+                    if(array[i] == null) continue;
+                    var e = array[i];
+                    if((index != i)&& 
+                        (ele.fileName == e.fileName) && 
+                        (ele.engine == e.engine)&& 
+                        (ele.hasDateFolder == e.hasDateFolder)&&
+                        (Math.abs(Date.parse(ele.date) - Date.parse(e.date)) < 86400001) &&
+                        (Math.abs(ele.update_date - e.update_date) < 259200000)
+                        ){
+                        //merge 
+                        size += e.size;
+                        var duplicateElement = extend(true, {}, e);
+                        mergedFile.push(duplicateElement);
+                        array.splice(i, 1);
+                        i--;
                     }
-                    else{
-                        return false;
-                    }
-                })
-            });
+                }
+                ele.size = size;
+                ele.merged_data_set = mergedFile;
+            })
+            return source;
         },
-        // fileMerge: function(source){
-        //     var res = [];
-        //     var bandList = [];
-        //     var size = 0;
-        //     var mergedFile = [];
-        //     source.forEach((ele, index, array)=>{
-        //         size = 0;
-        //         mergedFile = [];
-        //         array.forEach((e, i)=>{
-        //             if((index != i)&& //not current element
-        //             (ele.filename == e.filename)&& //equal name
-        //             (Math.abs(ele.date - e.date) < 86400001)&& //file date within 1 day
-        //             //(ele[7] == e[7])&& //equal file date
-        //             (ele.engine == e.engine)&& //equal engine name
-        //             (ele.hasDateFolder == e.hasDateFolder)&& //both have date folder or not have
-        //             (!bandList.includes(e.index)) &&  //not in band list
-        //             (Math.abs(ele.update_date - e.update_date) < 259200000)) //update date within 3 day
-        //             {
-        //                 size += e.size;
-        //                 bandList.push(e.index);
-        //                 mergedFile.push(e)
-        //             }
-        //         })
-        //         if(bandList.indexOf(ele.index) == -1)
-        //         {
-        //             mergedFile.push(ele);
-        //             size += ele.size;
-        //             bandList.push(ele.index);
-        //             // var newEle = $.extend(true, [], ele);
-        //             var newEle = extend(true, {}, ele);
-        //             newEle.size = size;
-        //             newEle.merged_data_set = mergedFile;
-        //             res.push(newEle);
-        //         }
-        //     })
-        //     return res;
-        // },
+
+        fileIteratorMerge: function(source){
+            var merge = function(index, targetArray){
+                // console.log("Merging " + index);
+                // console.log("current target: " + JSON.stringify(targetArray));
+                var compareTarget = targetArray[index];
+                for (let i = 0; i < targetArray.length; i++) {
+                    try {
+                        if(
+                        (index != i) &&
+                        (compareTarget.fileName == targetArray[i].fileName) && 
+                        (compareTarget.engine == targetArray[i].engine)&& 
+                        (compareTarget.hasDateFolder == targetArray[i].hasDateFolder)&&
+                        (Math.abs(Date.parse(compareTarget.date) - Date.parse(targetArray[i].date)) < 86400001) &&
+                        (Math.abs(compareTarget.update_date - targetArray[i].update_date) < 259200000)
+                        ){
+                            compareTarget.size += targetArray[i].size;
+                            var duplicateElement = extend(true, {}, targetArray[i]);
+                            compareTarget.merged_data_set.push(duplicateElement);
+                            targetArray.splice(i, 1);
+                            i--;
+                        }
+                    } catch (error) {
+                        console.log(error);
+                    }
+                }
+                if(index < targetArray.length - 1){
+                    index++;
+                    merge(index, targetArray);
+                }
+                else{
+                    return;
+                }
+            }
+            merge(0,  source);
+            return source;
+        },
 
         fileCheck: function(source){
             var res = null;
             try {
                 if (source) {
-                    var bandList = new Set();
                     source.map((ele, index , array)=>{
                         array.forEach((e, i)=>{
                             var token = hDFSFileHandler.generateToken();
-                            if((ele[1] == e[1]) && //same size
-                            (ele[1] > 500) &&
-                            (ele[8] == e[8]) && //same detail name
+                            if((ele.size == e.size) && //same size
+                            (ele.size > 500) &&
+                            (ele.fileName == e.fileName) && //same detail name
                             (index != i)&& //not same element
-                            (ele[9] == e[9]) &&  //same engine
-                            (!ele[4].includes("Agile")) && //not check Agile 
-                            (!ele[4].includes("app")) &&//not check app
-                            (!bandList.has(ele[0]))
+                            (ele.engine == e.engine)  //same engine
                             ){
-                                ele[10] = "Duplicate";
-                                ele[11] = (ele[11])?ele[11]:token;
-                                e[10] = "Duplicate"
-                                e[11] = ele[11]
-                                bandList.add(e[0]);
+                                ele.warning = "Duplicate";
+                                ele.token = (ele.token)?ele.token:token;
+                                e.warning = "Duplicate";
+                                e.token = ele.token;
                             }else if(
-                            (ele[8] == e[8]) && //same detail name
+                            (ele.fileName == e.fileName) && //same detail name
                             (index != i)&& //not same element
-                            (ele[9] == e[9]) &&  //same engine
-                            (!ele[4].includes("Agile")) && //not check Agile 
-                            (!ele[4].includes("app")) &&//not check app
-                            (!bandList.has(ele[0]))
+                            (ele.engine == e.engine)  //same engine
                             ){
                                 
-                                ele[10] = (ele[10] == "Duplicate") ? ele[10] + "/Warning": "Warning";
-                                ele[11] = (ele[11]) ? ele[11] : token;
-                                e[10] = ele[10];
-                                e[11] = ele[11];
-                                bandList.add(e[0]);
+                                ele.warning = (ele.warning == "Duplicate") ? ele.warning + "/Warning": "Warning";
+                                ele.token = (ele.token) ? ele.token : token;
+                                e.warning = ele.warning;
+                                e.token = ele.token;
                             }
                         })
-                        bandList.add(ele[0]);
                     })
+                    return source;
+                }
+            } catch (error) {
+                console.log(error);
+            }
+            return res;
+        },
+
+        fileIteratorCheck: function(source){
+            var res = null;
+            try {
+                if (source) {
+                    var checkWarn = function(index, array){
+                        compareTarget = array[index];
+                        var token = hDFSFileHandler.generateToken();
+                        for (let i = 0; i < array.length; i++) {
+                            try {
+                                if((compareTarget.size == array[i].size) && //same size
+                                (compareTarget.size > 500) &&
+                                (compareTarget.fileName == array[i].fileName) && //same detail name
+                                (index != i)&& //not same element
+                                (compareTarget.engine == array[i].engine)  //same engine
+                                ){
+                                    compareTarget.warning = array[i].warning = "Duplicate";
+                                    compareTarget.token = (compareTarget.token)?compareTarget.token:token;
+                                    array[i].token = compareTarget.token;
+                                    array.splice(i, 1);
+                                    i--;
+                                }else if(
+                                (compareTarget.fileName == array[i].fileName) && //same detail name
+                                (index != i)&& //not same element
+                                (compareTarget.engine ==array[i].engine)  //same engine
+                                ){
+                                    
+                                    compareTarget.warning = (compareTarget.warning == "Duplicate") ? compareTarget.warning + "/Warning": "Warning";
+                                    compareTarget.token = (compareTarget.token) ? compareTarget.token : token;
+                                    array[i].warning = compareTarget.warning;
+                                    array[i].token = compareTarget.token;
+                                }
+                            } catch (error) {
+                                console.log(error);
+                            }
+                        }
+                        if(index < array.length - 1){
+                            index++;
+                            checkWarn(index, array);
+                        }
+                        else{
+                            return;
+                        }
+                    }
+                    checkWarn(0, source);
                     return source;
                 }
             } catch (error) {
@@ -287,6 +336,7 @@ var hDFSFileHandler = function(){
     }
 }();
 
+//current not in use
 var cibFileHandler = function(){
     return{
         fileElement:[

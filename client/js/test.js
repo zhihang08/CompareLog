@@ -88,14 +88,80 @@ var tester = function (params) {
         return ele;
     })
 }
+var testerLooping = function(){
+    
+    var testTarget = [];
+
+    for(var i=0; i<30; i++){
+        testTarget.push({
+            "name":makeid(characters, 5),
+            "rank": makeid(numbers, 1),
+        })
+    }
+    console.log(JSON.stringify(testTarget), Object.keys(testTarget).length);
+    var removeCount = 0;
+    testTarget.forEach((ele, index, array)=>{
+        console.log("current target: " + JSON.stringify(array));
+        console.log("Merging " + index);
+        for (let index = 0; index < array.length; index++) {
+            if(ele.name != array[i].name && ele.rank == array[i].rank){
+                console.log("remove" + JSON.stringify(array[i]) + "in looping " + ele.name);
+                array.splice(i,1);
+                i--;
+                removeCount++;
+            }
+        }
+    })
+    console.log(JSON.stringify(testTarget), Object.keys(testTarget).length, removeCount);
+    
+}
+
+var testIterator = function() {
+    var testTarget = [];
+
+    for(var i=0; i<30; i++){
+        testTarget.push({
+            "name":makeid(characters, 5),
+            "rank": makeid(numbers, 1),
+        })
+    }
+    var initIndex = 0;
+    
+    var merge = function(item, index, targetArray){
+        console.log("Merging " + index);
+        console.log("current target: " + JSON.stringify(targetArray));
+        
+        for (let i = 0; i < targetArray.length; i++) {
+            try {
+                if (item.name != targetArray[i].name && item.rank == targetArray[i].rank) {
+                    console.log("Remove item " + JSON.stringify(targetArray[i]));
+                    targetArray.splice(i, 1);
+                    i--;
+                }
+            } catch (error) {
+                console.log(error);
+            }
+        }
+        if(index < targetArray.length - 1){
+            index++;
+            merge(targetArray[index], index, targetArray);
+        }
+        else{
+            return;
+        }
+    }
+    merge(testTarget[initIndex], initIndex, testTarget);
+}
 
 // console.time("Process Data");
 // ProcessArray(data, Process, Done);
 // console.timeEnd("Process Data")
 
-for (let index = 0; index < 10; index++) {
-    console.time("Filter Data");
-    tester();
-    console.timeEnd("Filter Data")
+for (let index = 0; index < 1; index++) {
+    console.time("Remove Data");
+    // tester();
+    // testerLooping();
+    testIterator();
+    console.timeEnd("Remove Data")
 }
 
